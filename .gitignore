@@ -41,3 +41,11 @@ out/
 
 ### querydsl ###
 /src/main/generated/
+
+src/main/resources/application-local.properties
+
+### firebase ###
+src/main/resources/firebase
+
+### open ai prompt ###
+src/main/resources/prompt

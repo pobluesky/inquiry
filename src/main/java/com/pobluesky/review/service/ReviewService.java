@@ -50,12 +50,7 @@ public class ReviewService {
         Long inquiryId,
         ReviewCreateRequestDTO dto
         ) {
-        Long userId = userClient.parseToken(token);
-
-        Manager manager = userClient.getManagerByIdWithoutToken(userId).getData();
-        if(manager == null){
-            throw new CommonException(ErrorCode.USER_NOT_FOUND);
-        }
+        Manager manager = validateManager(token);
 
         if(manager.getRole() != UserRole.SALES)
             throw new CommonException(ErrorCode.USER_NOT_MATCHED);
@@ -78,13 +73,7 @@ public class ReviewService {
         String token,
         Long inquiryId,
         ReviewUpdateRequestDTO request) {
-
-        Long userId = userClient.parseToken(token);
-
-        Manager manager = userClient.getManagerByIdWithoutToken(userId).getData();
-        if(manager == null){
-            throw new CommonException(ErrorCode.USER_NOT_FOUND);
-        }
+        Manager manager = validateManager(token);
 
         if(manager.getRole() != UserRole.SALES)
             throw new CommonException(ErrorCode.USER_NOT_MATCHED);
@@ -96,6 +85,30 @@ public class ReviewService {
             .orElseThrow(() -> new CommonException(ErrorCode.REVIEW_NOT_FOUND));
 
         review.updateReview(request.finalReviewText());
+
+        return ReviewResponseDTO.from(review);
+    }
+
+    private Manager validateManager(String token) {
+        Long userId = userClient.parseToken(token);
+
+        Manager manager = userClient.getManagerByIdWithoutToken(userId).getData();
+
+        if(manager == null){
+            throw new CommonException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        return manager;
+    }
+
+    // 모바일 검토 조회
+    @Transactional(readOnly = true)
+    public ReviewResponseDTO getReviewByInquiry(Long inquiryId){
+        Inquiry inquiry = inquiryRepository.findById(inquiryId)
+            .orElseThrow(() -> new CommonException(ErrorCode.INQUIRY_NOT_FOUND));
+
+        Review review = reviewRepository.findByInquiry(inquiry)
+            .orElseThrow(() -> new CommonException(ErrorCode.REVIEW_NOT_FOUND));
 
         return ReviewResponseDTO.from(review);
     }

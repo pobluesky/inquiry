@@ -8,11 +8,11 @@ public enum InquiryType {
     QUOTE_INQUIRY("Quote Inquiry", "견적문의"),
     COMMON_INQUIRY("General (Quote/Quality Inquiry)", "품질/견적문의");
 
-    private final String type;
-    private final String name;
+    private final String englishName;
+    private final String koreanName;
 
-    InquiryType(String type, String name) {
-        this.type = type;
-        this.name = name;
+    InquiryType(String englishName, String koreanName) {
+        this.englishName = englishName;
+        this.koreanName = koreanName;
     }
 }

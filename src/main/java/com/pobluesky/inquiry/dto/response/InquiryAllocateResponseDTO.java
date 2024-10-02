@@ -1,5 +1,6 @@
 package com.pobluesky.inquiry.dto.response;
 
+import com.pobluesky.feign.Manager;
 import com.pobluesky.feign.UserClient;
 import com.pobluesky.inquiry.entity.Inquiry;
 import lombok.Builder;
@@ -7,18 +8,18 @@ import lombok.Builder;
 @Builder
 public record InquiryAllocateResponseDTO (
     Long inquiryId,
-    ManagerSummaryResponseDTO salesManagerSummaryDto,
-    ManagerSummaryResponseDTO qualityManagerSummaryDto
+    Manager salesManagerSummaryDto,
+    Manager qualityManagerSummaryDto
 ) {
         public static InquiryAllocateResponseDTO from(Inquiry inquiry, UserClient userClient) {
-            ManagerSummaryResponseDTO salesManager = null;
-            ManagerSummaryResponseDTO qualityManager = null;
+            Manager salesManager = null;
+            Manager qualityManager = null;
 
             if(inquiry.getSalesManagerId()!=null){
-                salesManager = userClient.getManagerSummaryById(inquiry.getSalesManagerId()).getData();
+                salesManager = userClient.getManagerByIdWithoutToken(inquiry.getSalesManagerId()).getData();
             }
             if(inquiry.getQualityManagerId()!=null){
-                qualityManager = userClient.getManagerSummaryById(inquiry.getQualityManagerId()).getData();
+                qualityManager = userClient.getManagerByIdWithoutToken(inquiry.getQualityManagerId()).getData();
             }
 
             return InquiryAllocateResponseDTO.builder()

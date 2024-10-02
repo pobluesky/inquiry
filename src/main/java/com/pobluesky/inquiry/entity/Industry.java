@@ -7,23 +7,25 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum Industry {
 
-    AUTOMOBILE("Automobile"),
-    OTHERS("Others"),
-    CONSTRUCTION("Construction"),
-    DISTRIBUTION("Distribution"),
-    ELECTRIC("Electric"),
-    FURNITURE("Furniture"),
-    PLATING("Plating"),
-    HIGH_CARBON("High-Carbon"),
-    KITCHEN("Kitchen"),
-    LOW_CARBON("Low-Carbon"),
-    MACHINERY("Machinery"),
-    PIPE("Pipe"),
-    REROLLING("Rerolling"),
-    SHIPBUILDING("Shipbuilding"),
-    TRANSPORTATION("Transportation"),
-    VESSEL("Vessel"),
-    BEAM("Beam");
+    AUTOMOBILE("Automobile", "자동차"),
+    OTHERS("Others", "기타"),
+    CONSTRUCTION("Construction", "건설"),
+    DISTRIBUTION("Distribution", "유통"),
+    ELECTRIC("Electric", "전기"),
+    FURNITURE("Furniture", "가구"),
+    PLATING("Plating", "도금"),
+    HIGH_CARBON("High-Carbon", "고탄소"),
+    KITCHEN("Kitchen", "주방"),
+    LOW_CARBON("Low-Carbon", "저탄소"),
+    MACHINERY("Machinery", "기계"),
+    PIPE("Pipe", "파이프"),
+    REROLLING("Rerolling", "재압연"),
+    SHIPBUILDING("Shipbuilding", "조선"),
+    TRANSPORTATION("Transportation", "운송"),
+    VESSEL("Vessel", "선박"),
+    BEAM("Beam", "빔");
+
 
     private final String englishName;
+    private final String koreanName;
 }

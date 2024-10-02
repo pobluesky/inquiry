@@ -33,7 +33,7 @@ public class InquiryRepositoryImpl implements InquiryRepositoryCustom {
     private final UserClient userClient;
 
     @Override
-    public List<InquirySummaryResponseDTO> findInquiriesByCustomerWithoutPaging(
+    public List<InquirySummaryResponseDTO> findInquiriesByCustomer(
         Long userId,
         Progress progress,
         ProductType productType,
@@ -47,9 +47,6 @@ public class InquiryRepositoryImpl implements InquiryRepositoryCustom {
         String salesManagerName,
         String qualityManagerName
     ) {
-
-        // Feign을 사용해 customer 정보를 가져옴
-        Customer customer = userClient.getCustomerByIdWithoutToken(userId).getData();
 
         // 기본적으로 Inquiry 정보를 조회
         List<Inquiry> inquiries = queryFactory
@@ -90,19 +87,19 @@ public class InquiryRepositoryImpl implements InquiryRepositoryCustom {
                 .progress(inq.getProgress())
                 .productType(inq.getProductType())
                 .inquiryType(inq.getInquiryType())
-                .customerName(customer.getCustomerName())
                 .country(inq.getCountry())
                 .corporate(inq.getCorporate())
                 .corporationCode(inq.getCorporationCode())
                 .industry(inq.getIndustry())
                 .salesManagerName(salesManager != null ? salesManager.getName() : null)
                 .qualityManagerName(qualityManager != null ? qualityManager.getName() : null)
+                .createdDate(inq.getCreatedDate())
                 .build();
         }).collect(Collectors.toList());
     }
 
     @Override
-    public List<InquirySummaryResponseDTO> findInquiriesBySalesManagerWithoutPaging(
+    public List<InquirySummaryResponseDTO> findInquiriesBySalesManager(
         Progress progress,
         ProductType productType,
         String customerName,
@@ -158,6 +155,7 @@ public class InquiryRepositoryImpl implements InquiryRepositoryCustom {
                     .industry(inq.getIndustry())
                     .salesManagerName(salesManager != null ? salesManager.getName() : null)
                     .qualityManagerName(qualityManager != null ? qualityManager.getName() : null)
+                    .createdDate(inq.getCreatedDate())
                     .build();
             })
             // customerName이 존재하면 필터링
@@ -166,7 +164,7 @@ public class InquiryRepositoryImpl implements InquiryRepositoryCustom {
     }
 
     @Override
-    public List<InquirySummaryResponseDTO> findInquiriesByQualityManagerWithoutPaging(
+    public List<InquirySummaryResponseDTO> findInquiriesByQualityManager(
         Progress progress,
         ProductType productType,
         String customerName,
@@ -228,6 +226,7 @@ public class InquiryRepositoryImpl implements InquiryRepositoryCustom {
                     .industry(inq.getIndustry())
                     .salesManagerName(salesManager != null ? salesManager.getName() : null) // Sales Manager 정보
                     .qualityManagerName(qualityManager != null ? qualityManager.getName() : null) // Quality Manager 정보
+                    .createdDate(inq.getCreatedDate())
                     .build();
 
                 return dto;

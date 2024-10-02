@@ -5,15 +5,17 @@ import lombok.Getter;
 @Getter
 public enum ProductType {
 
-    COLD_ROLLED("Cold Rolled"),
-    HOT_ROLLED("Hot Rolled"),
-    WIRE_ROD("Wire Rod"),
-    THICK_PLATE("Thick Plate"),
-    CAR("Car");
+    COLD_ROLLED("Cold Rolled", "냉연"),
+    HOT_ROLLED("Hot Rolled", "열연"),
+    WIRE_ROD("Wire Rod", "선재"),
+    THICK_PLATE("Thick Plate", "후판"),
+    CAR("Car", "자동차");
 
-    private final String type;
+    private final String englishName;
+    private final String koreanName;
 
-    ProductType(String type) {
-        this.type = type;
+    ProductType(String englishName, String koreanName) {
+        this.englishName = englishName;
+        this.koreanName = koreanName;
     }
 }

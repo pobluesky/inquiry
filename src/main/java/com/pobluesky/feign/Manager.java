@@ -1,5 +1,6 @@
 package com.pobluesky.feign;
 
+import com.pobluesky.global.entity.Department;
 import com.pobluesky.global.security.UserRole;
 
 import lombok.Data;
@@ -14,5 +15,6 @@ public class Manager {
     private Long userId;
     private String name;
     private UserRole role;
+    private Department department;
 
 }

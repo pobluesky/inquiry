@@ -17,13 +17,15 @@ public record MobileInquirySummaryResponseDTO (
 
     String productType
 ) {
-    public static MobileInquirySummaryResponseDTO from(Inquiry inquiry, UserClient userClient) {
+    public static MobileInquirySummaryResponseDTO from(
+        Inquiry inquiry,
+        UserClient userClient) {
         Customer customer = userClient.getCustomerByIdWithoutToken(inquiry.getUserId()).getData();
 
         return MobileInquirySummaryResponseDTO.builder()
                 .inquiryId(inquiry.getInquiryId())
                 .progress(inquiry.getProgress().getTerm())
-                .inquiryType(inquiry.getInquiryType().getName())
+                .inquiryType(inquiry.getInquiryType().getKoreanName())
                 .customerName(customer.getCustomerName())
                 .productType(inquiry.getProductType().toString())
                 .build();

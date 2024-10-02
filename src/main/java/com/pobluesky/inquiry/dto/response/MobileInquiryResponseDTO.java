@@ -1,13 +1,11 @@
 package com.pobluesky.inquiry.dto.response;
 
 import com.pobluesky.feign.Customer;
+import com.pobluesky.feign.Manager;
 import com.pobluesky.feign.UserClient;
 import com.pobluesky.inquiry.entity.Country;
-import com.pobluesky.inquiry.entity.Industry;
 import com.pobluesky.inquiry.entity.Inquiry;
-import com.pobluesky.inquiry.entity.InquiryType;
-import com.pobluesky.inquiry.entity.ProductType;
-import com.pobluesky.inquiry.entity.Progress;
+
 import com.pobluesky.lineitem.dto.response.LineItemResponseDTO;
 import java.util.List;
 import lombok.Builder;
@@ -24,13 +22,13 @@ public record MobileInquiryResponseDTO(
     Country country,
     String corporate,
     String  salesPerson,
-    ManagerSummaryResponseDTO salesManagerSummaryDto,
-    ManagerSummaryResponseDTO qualityManagerSummaryDto,
-    InquiryType inquiryType,
-    Industry industry,
+    Manager salesManagerSummaryDto,
+    Manager qualityManagerSummaryDto,
+    String inquiryType,
+    String industry,
     String corporationCode,
-    ProductType productType,
-    Progress progress,
+    String productType,
+    String progress,
     String customerRequestDate,
     String additionalRequests,
     String fileName,
@@ -46,14 +44,14 @@ public record MobileInquiryResponseDTO(
         UserClient userClient
     ) {
         Customer customer = userClient.getCustomerByIdWithoutToken(inquiry.getUserId()).getData();
-        ManagerSummaryResponseDTO salesManager = null;
-        ManagerSummaryResponseDTO qualityManager = null;
+        Manager salesManager = null;
+        Manager qualityManager = null;
 
         if(inquiry.getSalesManagerId()!=null){
-            salesManager = userClient.getManagerSummaryById(inquiry.getSalesManagerId()).getData();
+            salesManager = userClient.getManagerByIdWithoutToken(inquiry.getSalesManagerId()).getData();
         }
         if(inquiry.getQualityManagerId()!=null){
-            qualityManager = userClient.getManagerSummaryById(inquiry.getQualityManagerId()).getData();
+            qualityManager = userClient.getManagerByIdWithoutToken(inquiry.getQualityManagerId()).getData();
         }
 
         return MobileInquiryResponseDTO.builder()
@@ -74,11 +72,11 @@ public record MobileInquiryResponseDTO(
             .qualityManagerSummaryDto(
                 qualityManager
             )
-            .inquiryType(inquiry.getInquiryType())
-            .industry(inquiry.getIndustry())
+            .inquiryType(inquiry.getInquiryType().getKoreanName())
+            .industry(inquiry.getIndustry().getKoreanName())
             .corporationCode(inquiry.getCorporationCode())
-            .productType(inquiry.getProductType())
-            .progress(inquiry.getProgress())
+            .productType(inquiry.getProductType().getKoreanName())
+            .progress(inquiry.getProgress().getTerm())
             .customerRequestDate(inquiry.getCustomerRequestDate())
             .additionalRequests(inquiry.getAdditionalRequests())
             .fileName(inquiry.getFileName())

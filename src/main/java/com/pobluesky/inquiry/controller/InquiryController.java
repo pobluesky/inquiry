@@ -1,5 +1,6 @@
 package com.pobluesky.inquiry.controller;
 
+import com.pobluesky.feign.ChatClient;
 import com.pobluesky.global.util.ResponseFactory;
 import com.pobluesky.global.util.model.CommonResult;
 import com.pobluesky.global.util.model.JsonResult;
@@ -21,6 +22,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+
+import io.swagger.v3.oas.annotations.Operation;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -47,14 +51,18 @@ public class InquiryController {
 
     private final InquiryService inquiryService;
 
+    private final ChatClient chatClient;
+
     // msa에 사용할 존재 여부만 확인하는 간단한 API 추가
     @GetMapping("/exists/{inquiryId}")
+    @Operation(summary = "Inquiry 존재여부)", description = "inquiry가 존재하는지 bool 출력")
     public ResponseEntity<Boolean> checkInquiryExists(@PathVariable("inquiryId") Long inquiryId) {
         boolean exists = inquiryService.existsById(inquiryId);
         return ResponseEntity.ok(exists);
     }
 
     @GetMapping("/without-token/{inquiryId}")
+    @Operation(summary = "Inquiry 토큰 없이 가져오기", description = "Inquiry 토큰 없이 가져오기")
     public ResponseEntity<JsonResult> getInquiryByIdWithoutToken(@PathVariable("inquiryId") Long inquiryId) {
         Inquiry inquiry = inquiryService.getInquiryByIdWithoutToken(inquiryId);
 
@@ -65,7 +73,7 @@ public class InquiryController {
 
     @GetMapping("/customers/inquiries/{userId}")
     @Operation(summary = "Inquiry 조회(고객사)", description = "등록된 모든 Inquiry를 조건에 맞게 조회한다.")
-    public ResponseEntity<JsonResult> getInquiriesByCustomerWithoutPaging(
+    public ResponseEntity<JsonResult> getInquiriesByCustomer(
         @RequestHeader("Authorization") String token,
         @PathVariable Long userId,
         @RequestParam(defaultValue = "LATEST") String sortBy,
@@ -80,7 +88,7 @@ public class InquiryController {
         @RequestParam(required = false) String salesManagerName,
         @RequestParam(required = false) String qualityManagerName
     ) {
-        List<InquirySummaryResponseDTO> inquiries = inquiryService.getInquiriesByCustomerWithoutPaging(
+        List<InquirySummaryResponseDTO> inquiries = inquiryService.getInquiriesByCustomer(
             token,
             userId,
             sortBy,
@@ -169,7 +177,7 @@ public class InquiryController {
     // 담당자 Inquiry 조회
     @GetMapping("/managers/sales/inquiries")
     @Operation(summary = "Inquiry 조회(담당자)", description = "등록된 모든 Inquiry를 조건에 맞게 조회한다.")
-    public ResponseEntity<JsonResult> getInquiriesBySalesManagerWithoutPaging(
+    public ResponseEntity<JsonResult> getInquiriesBySalesManager(
         @RequestHeader("Authorization") String token,
         @RequestParam(defaultValue = "LATEST") String sortBy,
         @RequestParam(required = false) Progress progress,
@@ -183,7 +191,7 @@ public class InquiryController {
         @RequestParam(required = false) String salesManagerName,
         @RequestParam(required = false) String qualityManagerName
     ) {
-        List<InquirySummaryResponseDTO> inquiries = inquiryService.getInquiriesBySalesManagerWithoutPaging(
+        List<InquirySummaryResponseDTO> inquiries = inquiryService.getInquiriesBySalesManager(
             token,
             sortBy,
             progress,
@@ -204,7 +212,7 @@ public class InquiryController {
 
     @GetMapping("/managers/quality/inquiries")
     @Operation(summary = "Inquiry 조회(담당자)", description = "등록된 모든 Inquiry를 조건에 맞게 조회한다.")
-    public ResponseEntity<JsonResult> getInquiriesByQualityManagerWithoutPaging(
+    public ResponseEntity<JsonResult> getInquiriesByQualityManager(
         @RequestHeader("Authorization") String token,
         @RequestParam(defaultValue = "LATEST") String sortBy,
         @RequestParam(required = false) Progress progress,
@@ -217,7 +225,7 @@ public class InquiryController {
         @RequestParam(required = false) String salesManagerName,
         @RequestParam(required = false) String qualityManagerName
     ) {
-        List<InquirySummaryResponseDTO> inquiries = inquiryService.getInquiriesByQualityManagerWithoutPaging(
+        List<InquirySummaryResponseDTO> inquiries = inquiryService.getInquiriesByQualityManager(
             token,
             sortBy,
             progress,
@@ -267,16 +275,28 @@ public class InquiryController {
         return ResponseEntity.ok(response);
     }
 
-    @PutMapping("/managers/inquiries/{inquiryId}/allocate")
-    @Operation(summary = "담당자 Inquiry 할당")
-    public ResponseEntity<InquiryAllocateResponseDTO> allocateManager(
+    @PutMapping("/managers/inquiries/{inquiryId}/allocate/{qualityManagerId}")
+    @Operation(summary = "Quality Manager Inquiry 배정", description = "품질+견적 유형에 대한 Inquiry 품질 담당자를 판매 담당자가 배정한다.")
+    public ResponseEntity <InquiryAllocateResponseDTO> allocateQualityManager(
         @RequestHeader("Authorization") String token,
-        @PathVariable Long inquiryId
+        @PathVariable Long inquiryId,
+        @PathVariable Long qualityManagerId
     ) {
-        InquiryAllocateResponseDTO response = inquiryService.allocateManager(token, inquiryId);
+        InquiryAllocateResponseDTO response = inquiryService.allocateQualityManager(token, inquiryId, qualityManagerId);
 
         return ResponseEntity.ok(response);
     }
+
+//    @PutMapping("/managers/inquiries/{inquiryId}/allocate")
+//    @Operation(summary = "담당자 Inquiry 할당")
+//    public ResponseEntity<InquiryAllocateResponseDTO> allocateManager(
+//        @RequestHeader("Authorization") String token,
+//        @PathVariable Long inquiryId
+//    ) {
+//        InquiryAllocateResponseDTO response = inquiryService.allocateManager(token, inquiryId);
+//
+//        return ResponseEntity.ok(response);
+//    }
 
     @GetMapping("customers/inquiries/{userId}/{productType}/all")
     @Operation(summary = "제품 유형에 따른 고객의 전체 Inquiry 목록 조회")
@@ -287,9 +307,9 @@ public class InquiryController {
     ) {
         List<InquiryFavoriteResponseDTO> response =
             inquiryService.getAllInquiriesByProductType(
-                token,
-                userId,
-                productType
+                    token,
+                    userId,
+                    productType
             );
 
         return ResponseEntity.ok(ResponseFactory.getSuccessJsonResult(response));
@@ -304,9 +324,9 @@ public class InquiryController {
     ) {
         List<InquiryFavoriteResponseDTO> response =
             inquiryService.getFavoriteInquiriesByProductType(
-                token,
-                userId,
-                productType
+                    token,
+                    userId,
+                    productType
             );
 
         return ResponseEntity.ok(ResponseFactory.getSuccessJsonResult(response));
@@ -330,8 +350,11 @@ public class InquiryController {
         @PathVariable Long userId,
         @PathVariable Long inquiryId
     ) {
-        InquiryFavoriteLineItemResponseDTO response =
-            inquiryService.getLineItemsByInquiryId(token, userId, inquiryId);
+        InquiryFavoriteLineItemResponseDTO response = inquiryService.getLineItemsByInquiryId(
+                token,
+                userId,
+                inquiryId
+        );
 
         return ResponseEntity.ok(ResponseFactory.getSuccessJsonResult(response));
     }
@@ -373,6 +396,30 @@ public class InquiryController {
         @RequestHeader("Authorization") String token
     ) {
         Map<String, List<Object[]>> response = inquiryService.getInquiryCountsByProductType(token);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/managers/inquiries/dashboard/counts-by-department")
+    @Operation(summary = "부서별 월별 총 문의 건수")
+    public ResponseEntity<Map<String, List<Object[]>>> getInquiryCountsByDepartment(
+        @RequestHeader("Authorization") String token,
+        @RequestParam(value = "date", required = false) String date
+    ) {
+        Map<String, List<Object[]>> response = inquiryService.getInquiryCountsByDepartment(token, date);
+        return ResponseEntity.ok(response);
+    }
+    /* [End] Dashboard API */
+
+    @PostMapping("/customers/inquiries/{userId}/optimized")
+    @Operation(summary = "제품 유형별 라인아이템 등록 최적화")
+    public ResponseEntity<JsonResult<?>> processOcrAndChatGpt(
+        @RequestHeader("Authorization") String token,
+        @PathVariable Long userId,
+        @RequestPart(value = "files", required = false) MultipartFile file,
+        @RequestParam("productType") ProductType productType
+    ) {
+        JsonResult<?> response = chatClient.processOcrFile(token,userId,file,productType);
 
         return ResponseEntity.ok(response);
     }

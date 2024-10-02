@@ -2,6 +2,7 @@ package com.pobluesky.review.dto.response;
 
 import com.pobluesky.review.entity.Review;
 import com.pobluesky.review.entity.SalesInfo;
+
 import lombok.Builder;
 
 @Builder

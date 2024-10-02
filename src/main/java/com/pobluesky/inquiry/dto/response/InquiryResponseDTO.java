@@ -1,5 +1,6 @@
 package com.pobluesky.inquiry.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.pobluesky.feign.Customer;
 import com.pobluesky.feign.Manager;
 import com.pobluesky.feign.UserClient;
@@ -10,6 +11,7 @@ import com.pobluesky.inquiry.entity.InquiryType;
 import com.pobluesky.inquiry.entity.ProductType;
 import com.pobluesky.inquiry.entity.Progress;
 import com.pobluesky.lineitem.dto.response.LineItemResponseDTO;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.Builder;
 
@@ -25,8 +27,8 @@ public record InquiryResponseDTO(
     Country country,
     String corporate,
     String  salesPerson,
-    ManagerSummaryResponseDTO salesManagerSummaryDto,
-    ManagerSummaryResponseDTO qualityManagerSummaryDto,
+    Manager salesManagerSummaryDto,
+    Manager qualityManagerSummaryDto,
     InquiryType inquiryType,
     Industry industry,
     String corporationCode,
@@ -38,7 +40,9 @@ public record InquiryResponseDTO(
     String filePath,
     String responseDeadline,
     List<LineItemResponseDTO> lineItemResponseDTOs,
-    Boolean isActivated
+    Boolean isActivated,
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyyMMdd")
+    LocalDateTime createdDate
 ) {
 
     public static InquiryResponseDTO of(
@@ -47,14 +51,14 @@ public record InquiryResponseDTO(
         UserClient userClient
     ) {
         Customer customer = userClient.getCustomerByIdWithoutToken(inquiry.getUserId()).getData();
-        ManagerSummaryResponseDTO salesManager = null;
-        ManagerSummaryResponseDTO qualityManager = null;
+        Manager salesManager = null;
+        Manager qualityManager = null;
 
         if(inquiry.getSalesManagerId()!=null){
-            salesManager = userClient.getManagerSummaryById(inquiry.getSalesManagerId()).getData();
+            salesManager = userClient.getManagerByIdWithoutToken(inquiry.getSalesManagerId()).getData();
         }
         if(inquiry.getQualityManagerId()!=null){
-            qualityManager = userClient.getManagerSummaryById(inquiry.getQualityManagerId()).getData();
+            qualityManager = userClient.getManagerByIdWithoutToken(inquiry.getQualityManagerId()).getData();
         }
 
         return InquiryResponseDTO.builder()
@@ -69,12 +73,8 @@ public record InquiryResponseDTO(
             .country(inquiry.getCountry())
             .corporate(inquiry.getCorporate())
             .salesPerson(inquiry.getSalesPerson())
-            .salesManagerSummaryDto(
-                salesManager
-            )
-            .qualityManagerSummaryDto(
-                qualityManager
-            )
+            .salesManagerSummaryDto(salesManager)
+            .qualityManagerSummaryDto(qualityManager)
             .inquiryType(inquiry.getInquiryType())
             .industry(inquiry.getIndustry())
             .corporationCode(inquiry.getCorporationCode())
@@ -87,6 +87,7 @@ public record InquiryResponseDTO(
             .responseDeadline(inquiry.getResponseDeadline())
             .lineItemResponseDTOs(lineItemResponseDTOs)
             .isActivated(inquiry.getIsActivated())
+            .createdDate(inquiry.getCreatedDate())
             .build();
     }
 }

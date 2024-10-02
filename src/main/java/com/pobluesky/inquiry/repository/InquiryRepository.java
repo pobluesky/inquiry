@@ -132,4 +132,23 @@ public interface InquiryRepository extends JpaRepository<Inquiry, Long>, Inquiry
         "WHERE i.qualityManagerId = :userId " +
         "GROUP BY i.productType")
     List<Object[]> countInquiriesByProductTypeAndQualityManager(@Param("userId") Long userId);
+
+//    @Query("SELECT COALESCE(sm.department, qm.department) AS department, " +
+//        "       COUNT(i.inquiryId) AS inquiryCount " +
+//        "FROM Inquiry i " +
+//        "LEFT JOIN i.salesManager sm " +
+//        "LEFT JOIN i.qualityManager qm " +
+//        "WHERE EXTRACT(MONTH FROM i.createdDate) = :month " +
+//        "AND EXTRACT(YEAR FROM i.createdDate) = :year " +
+//        "GROUP BY COALESCE(sm.department, qm.department) " +
+//        "ORDER BY department")
+//    List<Object[]> countInquiriesByDepartmentAndMonth(@Param("month") int month, @Param("year") int year);
+
+
+        @Query("SELECT i.userId, COUNT(i) " +
+            "FROM Inquiry i " +
+            "WHERE EXTRACT(MONTH FROM i.createdDate) = :month " +
+            "AND EXTRACT(YEAR FROM i.createdDate) = :year " +
+            "GROUP BY i.userId")
+        List<Object[]> countInquiriesByMonth(@Param("month") int month, @Param("year") int year);
 }

@@ -5,9 +5,13 @@ import com.pobluesky.feign.FileClient;
 import com.pobluesky.feign.FileInfo;
 import com.pobluesky.feign.Manager;
 import com.pobluesky.feign.UserClient;
+
+import com.pobluesky.global.entity.Department;
 import com.pobluesky.global.error.CommonException;
 import com.pobluesky.global.error.ErrorCode;
 import com.pobluesky.global.security.UserRole;
+import com.pobluesky.global.util.model.JsonResult;
+
 import com.pobluesky.inquiry.dto.request.InquiryCreateRequestDTO;
 import com.pobluesky.inquiry.dto.request.InquiryUpdateRequestDTO;
 import com.pobluesky.inquiry.dto.response.InquiryAllocateResponseDTO;
@@ -26,17 +30,25 @@ import com.pobluesky.inquiry.entity.Progress;
 import com.pobluesky.inquiry.repository.InquiryRepository;
 import com.pobluesky.lineitem.dto.response.LineItemResponseDTO;
 import com.pobluesky.lineitem.service.LineItemService;
+
 import java.text.DecimalFormat;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.Random;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+//import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -54,9 +66,11 @@ public class InquiryService {
 
     private final FileClient fileClient;
 
+//    private final KafkaTemplate<String, String> kafkaTemplate;
+
     // Inquiry 전체 조회(고객사) without paging
     @Transactional(readOnly = true)
-    public List<InquirySummaryResponseDTO> getInquiriesByCustomerWithoutPaging(
+    public List<InquirySummaryResponseDTO> getInquiriesByCustomer(
         String token,
         Long userId,
         String sortBy,
@@ -76,7 +90,7 @@ public class InquiryService {
         if(!Objects.equals(customer.getUserId(), userId))
             throw new CommonException(ErrorCode.USER_NOT_MATCHED);
 
-        return inquiryRepository.findInquiriesByCustomerWithoutPaging(
+        return inquiryRepository.findInquiriesByCustomer(
             userId,
             progress,
             productType,
@@ -94,7 +108,7 @@ public class InquiryService {
 
     // Inquiry 전체 조회(판매 담당자) without paging
     @Transactional(readOnly = true)
-    public List<InquirySummaryResponseDTO> getInquiriesBySalesManagerWithoutPaging(
+    public List<InquirySummaryResponseDTO> getInquiriesBySalesManager(
         String token,
         String sortBy,
         Progress progress,
@@ -113,7 +127,7 @@ public class InquiryService {
         if(manager.getRole() == UserRole.CUSTOMER)
             throw new CommonException(ErrorCode.UNAUTHORIZED_USER_MANAGER);
 
-        return inquiryRepository.findInquiriesBySalesManagerWithoutPaging(
+        return inquiryRepository.findInquiriesBySalesManager(
             progress,
             productType,
             customerName,
@@ -130,7 +144,7 @@ public class InquiryService {
 
     // Inquiry 전체 조회(품질 담당자) without paging
     @Transactional(readOnly = true)
-    public List<InquirySummaryResponseDTO> getInquiriesByQualityManagerWithoutPaging(
+    public List<InquirySummaryResponseDTO> getInquiriesByQualityManager(
         String token,
         String sortBy,
         Progress progress,
@@ -148,7 +162,7 @@ public class InquiryService {
         if(manager.getRole() == UserRole.CUSTOMER)
             throw new CommonException(ErrorCode.UNAUTHORIZED_USER_MANAGER);
 
-        return inquiryRepository.findInquiriesByQualityManagerWithoutPaging(
+        return inquiryRepository.findInquiriesByQualityManager(
             progress,
             productType,
             customerName,
@@ -184,8 +198,25 @@ public class InquiryService {
             filePath = fileInfo.getStoredFilePath();
         }
 
-        Inquiry inquiry = dto.toInquiryEntity(fileName, filePath);
-        inquiry.setUserId(userId);
+        Optional<Manager> salesManager = dto.salesManagerId()
+            .map(id -> {
+                JsonResult<Manager> result = userClient.getManagerById(token, id);
+                if (result.getData() == null) {
+                    throw new CommonException(ErrorCode.SALES_MANAGER_NOT_FOUND);
+                }
+                return result.getData();
+            });
+
+        if (salesManager.isPresent() && salesManager.get().getRole() != UserRole.SALES) {
+            throw new CommonException(ErrorCode.UNAUTHORIZED_USER_SALES);
+        }
+
+        Inquiry inquiry = dto.toInquiryEntity(fileName, filePath, salesManager);
+        inquiry.setUserId(customer.getUserId());
+
+        if (salesManager.isEmpty()) {
+            autoAllocateSalesManager(inquiry);
+        }
 
         Inquiry savedInquiry = inquiryRepository.save(inquiry);
 
@@ -194,8 +225,106 @@ public class InquiryService {
             dto.lineItemRequestDTOs()
         );
 
+//        kafkaTemplate.send("inquiry", "inquiry-create-"+ inquiry.getInquiryId().toString());
+
         return InquiryResponseDTO.of(savedInquiry, lineItems,userClient);
     }
+
+    private void autoAllocateSalesManager(Inquiry inquiry) {
+        List<Manager> salesManagers = userClient.findByRole(UserRole.SALES).getData();
+        if (salesManagers.isEmpty()) {
+            throw new CommonException(ErrorCode.SALES_MANAGER_NOT_FOUND);
+        }
+
+        Map<Manager, Integer> allocationCounts = getManagerAllocationCounts(salesManagers);
+        List<Manager> leastAllocatedManagers = findLeastAllocatedManagers(allocationCounts);
+
+        Manager selectedManager = leastAllocatedManagers.size() > 1
+            ? selectRandomManagerByDepartment(leastAllocatedManagers)
+            : leastAllocatedManagers.get(0);
+
+        inquiry.allocateSalesManager(selectedManager.getUserId());
+    }
+
+    private Map<Manager, Integer> getManagerAllocationCounts(List<Manager> managers) {
+        return managers.stream()
+            .collect(Collectors.toMap(
+                manager -> manager,
+                manager -> inquiryRepository.countInquiriesBySalesManager(manager.getUserId())
+            ));
+    }
+
+    // 최소 할당량 가진 매니저 반환(매니저별 문의 수)
+    private List<Manager> findLeastAllocatedManagers(Map<Manager, Integer> allocationCounts) {
+        Integer minAllocation = Collections.min(allocationCounts.values());
+
+        return allocationCounts.entrySet().stream()
+            .filter(entry -> entry.getValue().equals(minAllocation))
+            .map(Map.Entry::getKey)
+            .toList();
+    }
+
+    // 부서 랜덤 선택 -> 여러명일 경우 해당 부서 내 매니저 랜덤 배정
+    private Manager selectRandomManagerByDepartment(List<Manager> managers) {
+        Map<Department, List<Manager>> managersByDepartment = managers.stream()
+            .collect(Collectors.groupingBy(Manager::getDepartment));
+
+        Department selectedDepartment = managersByDepartment.keySet().stream()
+            .findAny()
+            .orElseThrow(() -> new CommonException(ErrorCode.DEPARTMENT_NOT_FOUND));
+
+        List<Manager> managersInDepartment = managersByDepartment.get(selectedDepartment);
+        return managersInDepartment.get(new Random().nextInt(managersInDepartment.size()));
+    }
+
+    @Transactional
+    public InquiryAllocateResponseDTO allocateQualityManager(String token, Long inquiryId, Long qualityManagerId) {
+        Manager salesManager = validateManager(token);
+
+        if (salesManager.getRole() != UserRole.SALES) {
+            throw new CommonException(ErrorCode.UNAUTHORIZED_USER_SALES);
+        }
+
+        Inquiry inquiry = inquiryRepository.findById(inquiryId)
+            .orElseThrow(() -> new CommonException(ErrorCode.INQUIRY_NOT_FOUND));
+
+        if (inquiry.getProgress() != Progress.FIRST_REVIEW_COMPLETED) {
+            throw new CommonException(ErrorCode.INQUIRY_UNABLE_ALLOCATE);
+        }
+
+        Manager qualityManager = validateManager(token);
+
+        if (qualityManager.getRole() != UserRole.QUALITY) {
+            throw new CommonException(ErrorCode.UNAUTHORIZED_USER_QUALITY);
+        }
+
+        inquiry.allocateQualityManager(qualityManager.getUserId());
+        inquiry.updateProgress(Progress.QUALITY_REVIEW_REQUEST);
+
+        return InquiryAllocateResponseDTO.from(inquiry,userClient);
+    }
+
+//    @Transactional
+//    public InquiryAllocateResponseDTO allocateManager(String token, Long inquiryId) {
+//        Manager manager = validateManager(token);
+//
+//        Inquiry inquiry = inquiryRepository.findById(inquiryId)
+//            .orElseThrow(() -> new CommonException(ErrorCode.INQUIRY_NOT_FOUND));
+//
+//        if (manager.getRole() == UserRole.SALES) {
+//            if (inquiry.getProgress() == Progress.SUBMIT) {
+//                inquiry.allocateSalesManager(manager);
+//                inquiry.updateProgress(Progress.RECEIPT);
+//            } else throw new CommonException(ErrorCode.INQUIRY_UNABLE_ALLOCATE);
+//        } else {
+//            if (inquiry.getProgress() == Progress.QUALITY_REVIEW_REQUEST) {
+//                inquiry.allocateQualityManager(manager);
+//                inquiry.updateProgress(Progress.QUALITY_REVIEW_RESPONSE);
+//            } else throw new CommonException(ErrorCode.INQUIRY_UNABLE_ALLOCATE);
+//        }
+//
+//        return InquiryAllocateResponseDTO.from(inquiry);
+//    }
 
     @Transactional
     public InquiryResponseDTO updateInquiryById(
@@ -218,7 +347,12 @@ public class InquiryService {
         String fileName = inquiry.getFileName();
         String filePath = inquiry.getFilePath();
 
-        if (file != null) {
+        boolean isFileDeleted = inquiryUpdateRequestDTO.isFileDeleted() != null && inquiryUpdateRequestDTO.isFileDeleted();
+
+        if (isFileDeleted) {
+            fileName = null;
+            filePath = null;
+        } else if (file != null) {
             FileInfo fileInfo = fileClient.uploadFile(file);
             fileName = fileInfo.getOriginName();
             filePath = fileInfo.getStoredFilePath();
@@ -245,6 +379,8 @@ public class InquiryService {
             inquiryUpdateRequestDTO.lineItemRequestDTOs()
         );
 
+//        kafkaTemplate.send("inquiry", "inquiry-update-"+ inquiry.getInquiryId().toString());
+
         return InquiryResponseDTO.of(inquiry, lineItemResponseDTOS,userClient);
     }
 
@@ -259,6 +395,8 @@ public class InquiryService {
             throw new CommonException(ErrorCode.USER_NOT_MATCHED);
 
         lineItemService.deleteLineItemsByInquiry(inquiry);
+
+//        kafkaTemplate.send("inquiry", "inquiry-delete-"+ inquiry.getInquiryId().toString());
 
         inquiry.deleteInquiry();
     }
@@ -329,6 +467,8 @@ public class InquiryService {
 
         inquiry.updateProgress(newProgress);
 
+//        kafkaTemplate.send("inquiry", "inquiry-update-"+ inquiry.getInquiryId().toString());
+
         return InquiryProgressResponseDTO.from(inquiry);
     }
 
@@ -359,28 +499,6 @@ public class InquiryService {
             default:
                 return false;
         }
-    }
-
-    @Transactional
-    public InquiryAllocateResponseDTO allocateManager(String token, Long inquiryId) {
-        Manager manager = validateManager(token);
-
-        Inquiry inquiry = inquiryRepository.findById(inquiryId)
-            .orElseThrow(() -> new CommonException(ErrorCode.INQUIRY_NOT_FOUND));
-
-        if (manager.getRole() == UserRole.SALES) {
-            if (inquiry.getProgress() == Progress.SUBMIT) {
-                inquiry.allocateSalesManager(manager.getUserId());
-                inquiry.updateProgress(Progress.RECEIPT);
-            } else throw new CommonException(ErrorCode.INQUIRY_UNABLE_ALLOCATE);
-        } else {
-            if (inquiry.getProgress() == Progress.QUALITY_REVIEW_REQUEST) {
-                inquiry.allocateQualityManager(manager.getUserId());
-                inquiry.updateProgress(Progress.QUALITY_REVIEW_RESPONSE);
-            } else throw new CommonException(ErrorCode.INQUIRY_UNABLE_ALLOCATE);
-        }
-
-        return InquiryAllocateResponseDTO.from(inquiry,userClient);
     }
 
     public List<InquiryFavoriteResponseDTO> getAllInquiriesByProductType(
@@ -426,6 +544,8 @@ public class InquiryService {
 
         if(!Objects.equals(customer.getUserId(), inquiry.getUserId()))
             throw new CommonException(ErrorCode.USER_NOT_MATCHED);
+
+//        kafkaTemplate.send("inquiry", "inquiry-update favorite-"+ inquiry.getInquiryId().toString());
 
         inquiry.updateFavorite();
     }
@@ -553,6 +673,72 @@ public class InquiryService {
         return results;
     }
 
+    @Transactional(readOnly = true)
+    public Map<String, List<Object[]>> getInquiryCountsByDepartment(String token, String date) {
+        validateManager(token);
+
+        LocalDate currentDate = LocalDate.now();
+        int year;
+        int month;
+
+        if (date != null && !date.isEmpty()) {
+            String[] dateParts = date.split("-");
+            year = Integer.parseInt(dateParts[0]);
+            month = Integer.parseInt(dateParts[1]);
+
+            if (year > currentDate.getYear() || (year == currentDate.getYear() && month > currentDate.getMonthValue())) {
+                List<Department> departments = Arrays.asList(Department.values());
+                List<Object[]> totals = new ArrayList<>();
+
+                for (Department department : departments) {
+                    totals.add(new Object[]{department.getCode(), 0});
+                }
+
+                Map<String, List<Object[]>> result = new HashMap<>();
+                result.put("total", totals);
+                return result;
+            }
+        } else {
+            month = currentDate.getMonthValue() == 1 ? 12 : currentDate.getMonthValue() - 1;
+            year = (month == 12) ? currentDate.getYear() - 1 : currentDate.getYear();
+        }
+
+        // SALES와 QUALITY 역할에 해당하는 매니저 정보 가져오기
+        List<Manager> salesManagers = userClient.findByRole(UserRole.SALES).getData();
+        List<Manager> qualityManagers = userClient.findByRole(UserRole.QUALITY).getData();
+
+        // 매니저의 ID와 부서를 매핑하는 Map 생성
+        Map<Long, Department> departmentMap = new HashMap<>();
+        salesManagers.forEach(manager -> departmentMap.put(manager.getUserId(), manager.getDepartment()));
+        qualityManagers.forEach(manager -> departmentMap.put(manager.getUserId(), manager.getDepartment()));
+
+        // Inquiry 데이터 조회
+        List<Object[]> currentCounts = inquiryRepository.countInquiriesByMonth(month, year);
+
+        // 부서별로 Inquiry 수 집계
+        Map<Department, Integer> inquiryMap = new HashMap<>();
+        for (Object[] result : currentCounts) {
+            if (result != null && result.length > 1 && result[0] != null) {
+                Long managerId = (Long) result[0];
+                Integer inquiryCount = ((Number) result[1]).intValue();
+                Department department = departmentMap.get(managerId);
+                inquiryMap.put(department, inquiryCount);
+            }
+        }
+
+        // 각 부서별로 총 Inquiry 수 리스트 작성
+        List<Object[]> totals = new ArrayList<>();
+        for (Department department : Department.values()) {
+            int inquiryCount = inquiryMap.getOrDefault(department.getCode(), 0);
+            totals.add(new Object[]{department.getCode(), inquiryCount});
+        }
+
+        // 결과 반환
+        Map<String, List<Object[]>> result = new HashMap<>();
+        result.put("total", totals);
+        return result;
+    }
+
     private List<InquiryFavoriteResponseDTO> convertToResponseDTO(List<Inquiry> inquiries) {
         if (inquiries.isEmpty()) {
             throw new CommonException(ErrorCode.INQUIRY_LIST_EMPTY);
@@ -604,10 +790,10 @@ public class InquiryService {
     @Transactional(readOnly = true)
     public MobileInquiryResponseDTO getInquiryById(Long inquiryId) {
         Inquiry inquiry = inquiryRepository.findActiveInquiryByInquiryId(inquiryId)
-            .orElseThrow(() -> new CommonException(ErrorCode.INQUIRY_NOT_FOUND));
+                .orElseThrow(() -> new CommonException(ErrorCode.INQUIRY_NOT_FOUND));
 
         List<LineItemResponseDTO> lineItemsByInquiry =
-            lineItemService.getFullLineItemsByInquiry(inquiryId);
+                lineItemService.getFullLineItemsByInquiry(inquiryId);
 
         return MobileInquiryResponseDTO.of(inquiry,lineItemsByInquiry,userClient);
     }

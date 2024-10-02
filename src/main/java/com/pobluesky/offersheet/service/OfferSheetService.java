@@ -57,9 +57,7 @@ public class OfferSheetService {
         Long inquiryId,
         OfferSheetUpdateRequestDTO offerSheetUpdateRequestDTO
     ) {
-        Long userId = userClient.parseToken(token);
-
-        Manager manager = userClient.getManagerByIdWithoutToken(userId).getData();
+        Manager manager = validateManager(token);
 
         if(manager == null){
             throw new CommonException(ErrorCode.USER_NOT_FOUND);
@@ -96,13 +94,7 @@ public class OfferSheetService {
         Long inquiryId,
         OfferSheetCreateRequestDTO offerSheetCreateRequestDTO
     ) {
-        Long userId = userClient.parseToken(token);
-
-        Manager manager = userClient.getManagerByIdWithoutToken(userId).getData();
-
-        if(manager == null){
-            throw new CommonException(ErrorCode.USER_NOT_FOUND);
-        }
+        Manager manager = validateManager(token);
 
         if(manager.getRole() != UserRole.SALES) {
             throw new CommonException(ErrorCode.UNAUTHORIZED_USER_SALES);
@@ -122,5 +114,17 @@ public class OfferSheetService {
         OfferSheet savedOfferSheet = offerSheetRepository.save(offerSheet);
 
         return OfferSheetResponseDTO.from(savedOfferSheet,userClient);
+    }
+
+    private Manager validateManager(String token) {
+        Long userId = userClient.parseToken(token);
+
+        Manager manager = userClient.getManagerByIdWithoutToken(userId).getData();
+
+        if(manager == null){
+            throw new CommonException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        return manager;
     }
 }

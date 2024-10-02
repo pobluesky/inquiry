@@ -19,8 +19,10 @@ public record InquiryFavoriteResponseDTO(
     List<LineItemResponseDTO> lineItemList,
     Boolean isFavorite
 ) {
-    public static InquiryFavoriteResponseDTO of(Inquiry inquiry, List<LineItemResponseDTO> lineItems
-    , UserClient userClient) {
+    public static InquiryFavoriteResponseDTO of(
+        Inquiry inquiry,
+        List<LineItemResponseDTO> lineItems,
+        UserClient userClient) {
         Customer customer = userClient.getCustomerByIdWithoutToken(inquiry.getUserId()).getData();
 
         return InquiryFavoriteResponseDTO.builder()

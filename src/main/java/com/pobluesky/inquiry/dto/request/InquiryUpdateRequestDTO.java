@@ -17,6 +17,7 @@ public record InquiryUpdateRequestDTO(
     String customerRequestDate,
     String additionalRequests,
     String responseDeadline,
-    List<Map<String, Object>> lineItemRequestDTOs
+    List<Map<String, Object>> lineItemRequestDTOs,
+    Boolean isFileDeleted
 ) {
 }
