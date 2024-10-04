@@ -15,4 +15,13 @@ public enum InquiryType {
         this.englishName = englishName;
         this.koreanName = koreanName;
     }
+
+    public static InquiryType fromKoreanName(String koreanName) {
+        for (InquiryType inquiryType : InquiryType.values()) {
+            if (inquiryType.getKoreanName().equals(koreanName))
+                return inquiryType;
+        }
+
+        throw new IllegalArgumentException("Invalid inquiryType value: " + koreanName);
+    }
 }

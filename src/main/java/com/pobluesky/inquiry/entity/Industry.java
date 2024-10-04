@@ -28,4 +28,13 @@ public enum Industry {
 
     private final String englishName;
     private final String koreanName;
+
+    public static Industry fromKoreanName(String koreanName) {
+        for (Industry industry : Industry.values()) {
+            if (industry.getKoreanName().equals(koreanName))
+                return industry;
+        }
+
+        throw new IllegalArgumentException("Invalid industry value: " + koreanName);
+    }
 }

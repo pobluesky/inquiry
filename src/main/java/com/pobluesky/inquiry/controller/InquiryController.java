@@ -9,6 +9,7 @@ import com.pobluesky.inquiry.dto.request.InquiryUpdateRequestDTO;
 import com.pobluesky.inquiry.dto.response.InquiryAllocateResponseDTO;
 import com.pobluesky.inquiry.dto.response.InquiryFavoriteLineItemResponseDTO;
 import com.pobluesky.inquiry.dto.response.InquiryFavoriteResponseDTO;
+import com.pobluesky.inquiry.dto.response.InquiryLogResponseDTO;
 import com.pobluesky.inquiry.dto.response.InquiryProgressResponseDTO;
 import com.pobluesky.inquiry.dto.response.InquiryResponseDTO;
 import com.pobluesky.inquiry.dto.response.InquirySummaryResponseDTO;
@@ -287,17 +288,6 @@ public class InquiryController {
         return ResponseEntity.ok(response);
     }
 
-//    @PutMapping("/managers/inquiries/{inquiryId}/allocate")
-//    @Operation(summary = "담당자 Inquiry 할당")
-//    public ResponseEntity<InquiryAllocateResponseDTO> allocateManager(
-//        @RequestHeader("Authorization") String token,
-//        @PathVariable Long inquiryId
-//    ) {
-//        InquiryAllocateResponseDTO response = inquiryService.allocateManager(token, inquiryId);
-//
-//        return ResponseEntity.ok(response);
-//    }
-
     @GetMapping("customers/inquiries/{userId}/{productType}/all")
     @Operation(summary = "제품 유형에 따른 고객의 전체 Inquiry 목록 조회")
     public ResponseEntity<JsonResult> getAllInquiriesByProductType(
@@ -359,6 +349,19 @@ public class InquiryController {
         return ResponseEntity.ok(ResponseFactory.getSuccessJsonResult(response));
     }
 
+    @PostMapping("/customers/inquiries/{userId}/optimized")
+    @Operation(summary = "제품 유형별 라인아이템 등록 최적화")
+    public ResponseEntity<JsonResult<?>> processOcrAndChatGpt(
+        @RequestHeader("Authorization") String token,
+        @PathVariable Long userId,
+        @RequestPart(value = "files", required = false) MultipartFile file,
+        @RequestParam("productType") ProductType productType
+    ) {
+        JsonResult<?> response = chatClient.processOcrFile(token,userId,file,productType);
+
+        return ResponseEntity.ok(response);
+    }
+
     /* [Start] Dashboard API */
     @GetMapping("/managers/inquiries/dashboard/average-monthly")
     @Operation(summary = "월별 Inquiry 주문 처리 소요일 평균")
@@ -409,18 +412,16 @@ public class InquiryController {
         Map<String, List<Object[]>> response = inquiryService.getInquiryCountsByDepartment(token, date);
         return ResponseEntity.ok(response);
     }
-    /* [End] Dashboard API */
 
-    @PostMapping("/customers/inquiries/{userId}/optimized")
-    @Operation(summary = "제품 유형별 라인아이템 등록 최적화")
-    public ResponseEntity<JsonResult<?>> processOcrAndChatGpt(
+    @GetMapping("managers/inquiries/dashboard/{inquiryId}/logs")
+    @Operation(summary = "Inquiry 진행 상태 히스토리 조회")
+    public ResponseEntity<JsonResult> getInquiryLogs(
         @RequestHeader("Authorization") String token,
-        @PathVariable Long userId,
-        @RequestPart(value = "files", required = false) MultipartFile file,
-        @RequestParam("productType") ProductType productType
+        @PathVariable Long inquiryId
     ) {
-        JsonResult<?> response = chatClient.processOcrFile(token,userId,file,productType);
-
-        return ResponseEntity.ok(response);
+        InquiryLogResponseDTO response = inquiryService.getInquiryLogs(token, inquiryId);
+        return ResponseEntity.ok(ResponseFactory.getSuccessJsonResult(response));
     }
+
+    /* [End] Dashboard API */
 }

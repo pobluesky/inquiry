@@ -24,7 +24,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "wirerod_line_items")
-public class WireRodLineItem extends LineItem {
+public class WireRodLineItem extends LineItem{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -17,6 +17,7 @@ import com.pobluesky.inquiry.dto.request.InquiryUpdateRequestDTO;
 import com.pobluesky.inquiry.dto.response.InquiryAllocateResponseDTO;
 import com.pobluesky.inquiry.dto.response.InquiryFavoriteLineItemResponseDTO;
 import com.pobluesky.inquiry.dto.response.InquiryFavoriteResponseDTO;
+import com.pobluesky.inquiry.dto.response.InquiryLogResponseDTO;
 import com.pobluesky.inquiry.dto.response.InquiryProgressResponseDTO;
 import com.pobluesky.inquiry.dto.response.InquiryResponseDTO;
 import com.pobluesky.inquiry.dto.response.InquirySummaryResponseDTO;
@@ -24,9 +25,11 @@ import com.pobluesky.inquiry.dto.response.MobileInquiryResponseDTO;
 import com.pobluesky.inquiry.dto.response.MobileInquirySummaryResponseDTO;
 import com.pobluesky.inquiry.entity.Industry;
 import com.pobluesky.inquiry.entity.Inquiry;
+import com.pobluesky.inquiry.entity.InquiryLog;
 import com.pobluesky.inquiry.entity.InquiryType;
 import com.pobluesky.inquiry.entity.ProductType;
 import com.pobluesky.inquiry.entity.Progress;
+import com.pobluesky.inquiry.repository.InquiryLogRepository;
 import com.pobluesky.inquiry.repository.InquiryRepository;
 import com.pobluesky.lineitem.dto.response.LineItemResponseDTO;
 import com.pobluesky.lineitem.service.LineItemService;
@@ -65,6 +68,8 @@ public class InquiryService {
     private final UserClient userClient;
 
     private final FileClient fileClient;
+
+    private final InquiryLogRepository inquiryLogRepository;
 
 //    private final KafkaTemplate<String, String> kafkaTemplate;
 
@@ -220,6 +225,9 @@ public class InquiryService {
 
         Inquiry savedInquiry = inquiryRepository.save(inquiry);
 
+        // InquiryLog 생성
+        createInquiryLog(savedInquiry, savedInquiry.getProgress());
+
         List<LineItemResponseDTO> lineItems = lineItemService.createLineItems(
             inquiry,
             dto.lineItemRequestDTOs()
@@ -303,28 +311,6 @@ public class InquiryService {
 
         return InquiryAllocateResponseDTO.from(inquiry,userClient);
     }
-
-//    @Transactional
-//    public InquiryAllocateResponseDTO allocateManager(String token, Long inquiryId) {
-//        Manager manager = validateManager(token);
-//
-//        Inquiry inquiry = inquiryRepository.findById(inquiryId)
-//            .orElseThrow(() -> new CommonException(ErrorCode.INQUIRY_NOT_FOUND));
-//
-//        if (manager.getRole() == UserRole.SALES) {
-//            if (inquiry.getProgress() == Progress.SUBMIT) {
-//                inquiry.allocateSalesManager(manager);
-//                inquiry.updateProgress(Progress.RECEIPT);
-//            } else throw new CommonException(ErrorCode.INQUIRY_UNABLE_ALLOCATE);
-//        } else {
-//            if (inquiry.getProgress() == Progress.QUALITY_REVIEW_REQUEST) {
-//                inquiry.allocateQualityManager(manager);
-//                inquiry.updateProgress(Progress.QUALITY_REVIEW_RESPONSE);
-//            } else throw new CommonException(ErrorCode.INQUIRY_UNABLE_ALLOCATE);
-//        }
-//
-//        return InquiryAllocateResponseDTO.from(inquiry);
-//    }
 
     @Transactional
     public InquiryResponseDTO updateInquiryById(
@@ -736,6 +722,7 @@ public class InquiryService {
         // 결과 반환
         Map<String, List<Object[]>> result = new HashMap<>();
         result.put("total", totals);
+
         return result;
     }
 
@@ -805,5 +792,58 @@ public class InquiryService {
     public Inquiry getInquiryByIdWithoutToken(Long inquiryId) {
         return inquiryRepository.findActiveInquiryByInquiryId(inquiryId)
             .orElseThrow(() -> new CommonException(ErrorCode.INQUIRY_NOT_FOUND));
+    }
+
+    public InquiryLogResponseDTO getInquiryLogs(String token, Long inquiryId) {
+        validateManager(token);
+
+        inquiryRepository.findById(inquiryId)
+            .orElseThrow(() -> new CommonException(ErrorCode.INQUIRY_NOT_FOUND));
+
+        List<InquiryLog> logs = inquiryLogRepository.findByInquiryInquiryIdOrderByCreatedDateAsc(inquiryId);
+
+        return InquiryLogResponseDTO.from(inquiryId, logs);
+    }
+
+    private void createInquiryLog(Inquiry inquiry, Progress progress) {
+        InquiryLog log = InquiryLog.builder()
+            .inquiry(inquiry)
+            .progress(progress)
+            .build();
+
+        inquiryLogRepository.save(log);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MobileInquirySummaryResponseDTO> getInquiriesBySearch(
+        String sortBy,
+        Progress progress,
+        ProductType productType,
+        String customerName,
+        InquiryType inquiryType,
+        String salesPerson,
+        Industry industry,
+        LocalDate startDate,
+        LocalDate endDate,
+        String salesManagerName,
+        String qualityManagerName
+    ) {
+        List<InquirySummaryResponseDTO> inquiries = inquiryRepository.findInquiriesBySalesManager(
+            progress,
+            productType,
+            customerName,
+            inquiryType,
+            salesPerson,
+            industry,
+            startDate,
+            endDate,
+            sortBy,
+            salesManagerName,
+            qualityManagerName
+        );
+
+        return inquiries.stream()
+            .map(MobileInquirySummaryResponseDTO::toMobileResponseDTO)
+            .toList();
     }
 }

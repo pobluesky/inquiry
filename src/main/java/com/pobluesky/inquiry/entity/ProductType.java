@@ -18,4 +18,13 @@ public enum ProductType {
         this.englishName = englishName;
         this.koreanName = koreanName;
     }
+
+    public static ProductType fromKoreanName(String koreanName) {
+        for (ProductType productType : ProductType.values()) {
+            if (productType.getKoreanName().equals(koreanName))
+                return productType;
+        }
+
+        throw new IllegalArgumentException("Invalid productType value: " + koreanName);
+    }
 }

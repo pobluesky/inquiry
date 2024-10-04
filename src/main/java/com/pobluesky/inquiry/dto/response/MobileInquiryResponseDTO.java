@@ -76,7 +76,7 @@ public record MobileInquiryResponseDTO(
             .industry(inquiry.getIndustry().getKoreanName())
             .corporationCode(inquiry.getCorporationCode())
             .productType(inquiry.getProductType().getKoreanName())
-            .progress(inquiry.getProgress().getTerm())
+            .progress(inquiry.getProgress().getKoreanName())
             .customerRequestDate(inquiry.getCustomerRequestDate())
             .additionalRequests(inquiry.getAdditionalRequests())
             .fileName(inquiry.getFileName())
