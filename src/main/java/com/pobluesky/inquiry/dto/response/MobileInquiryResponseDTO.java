@@ -7,7 +7,10 @@ import com.pobluesky.inquiry.entity.Country;
 import com.pobluesky.inquiry.entity.Inquiry;
 
 import com.pobluesky.lineitem.dto.response.LineItemResponseDTO;
+
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import lombok.Builder;
 
 @Builder
@@ -22,8 +25,8 @@ public record MobileInquiryResponseDTO(
     Country country,
     String corporate,
     String  salesPerson,
-    Manager salesManagerSummaryDto,
-    Manager qualityManagerSummaryDto,
+    String managerName,
+    String managerDepartment,
     String inquiryType,
     String industry,
     String corporationCode,
@@ -35,6 +38,7 @@ public record MobileInquiryResponseDTO(
     String filePath,
     String responseDeadline,
     List<LineItemResponseDTO> lineItemResponseDTOs,
+    String customInquiryId,
     Boolean isActivated
 ) {
 
@@ -45,14 +49,15 @@ public record MobileInquiryResponseDTO(
     ) {
         Customer customer = userClient.getCustomerByIdWithoutToken(inquiry.getUserId()).getData();
         Manager salesManager = null;
-        Manager qualityManager = null;
+        String ManagerName=null;
+        String ManagerDepartment=null;
 
         if(inquiry.getSalesManagerId()!=null){
             salesManager = userClient.getManagerByIdWithoutToken(inquiry.getSalesManagerId()).getData();
+            ManagerName = salesManager.getName();
+            ManagerDepartment = salesManager.getDepartment().toString();
         }
-        if(inquiry.getQualityManagerId()!=null){
-            qualityManager = userClient.getManagerByIdWithoutToken(inquiry.getQualityManagerId()).getData();
-        }
+
 
         return MobileInquiryResponseDTO.builder()
             .inquiryId(inquiry.getInquiryId())
@@ -60,18 +65,13 @@ public record MobileInquiryResponseDTO(
             .name(customer.getName())
             .customerName(customer.getCustomerName())
             .customerCode(customer.getCustomerCode())
-            .corporationCode(inquiry.getCorporationCode())
             .email(customer.getEmail())
             .phone(customer.getPhone())
             .country(inquiry.getCountry())
             .corporate(inquiry.getCorporate())
             .salesPerson(inquiry.getSalesPerson())
-            .salesManagerSummaryDto(
-                salesManager
-            )
-            .qualityManagerSummaryDto(
-                qualityManager
-            )
+            .managerName(ManagerName)
+            .managerDepartment(ManagerDepartment)
             .inquiryType(inquiry.getInquiryType().getKoreanName())
             .industry(inquiry.getIndustry().getKoreanName())
             .corporationCode(inquiry.getCorporationCode())
@@ -83,7 +83,14 @@ public record MobileInquiryResponseDTO(
             .filePath(inquiry.getFilePath())
             .responseDeadline(inquiry.getResponseDeadline())
             .lineItemResponseDTOs(lineItemResponseDTOs)
+            .customInquiryId(generateCustomInquiryId(inquiry.getCreatedDate(), inquiry.getInquiryId()))
             .isActivated(inquiry.getIsActivated())
             .build();
+    }
+
+    static String generateCustomInquiryId(LocalDateTime createdDate, Long inquiryId) {
+        String createdDateString = createdDate.toString();
+
+        return "#" + createdDateString.split("T")[0].replace("-", "") + "P" + inquiryId;
     }
 }

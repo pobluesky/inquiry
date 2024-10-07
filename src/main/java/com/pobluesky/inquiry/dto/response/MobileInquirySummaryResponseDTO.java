@@ -1,5 +1,7 @@
 package com.pobluesky.inquiry.dto.response;
 
+import static com.pobluesky.inquiry.dto.response.MobileInquiryResponseDTO.generateCustomInquiryId;
+
 import com.pobluesky.feign.Customer;
 import com.pobluesky.feign.UserClient;
 import com.pobluesky.inquiry.entity.Inquiry;
@@ -8,6 +10,8 @@ import lombok.Builder;
 @Builder
 public record MobileInquirySummaryResponseDTO (
     Long inquiryId,
+
+    String customInquiryId,
 
     String progress,  //진행현황 e.g. 접수 -> 1차검토 -> ..
 
@@ -28,6 +32,7 @@ public record MobileInquirySummaryResponseDTO (
                 .inquiryType(inquiry.getInquiryType().getKoreanName())
                 .customerName(customer.getCustomerName())
                 .productType(inquiry.getProductType().toString())
+                .customInquiryId(generateCustomInquiryId(inquiry.getCreatedDate(), inquiry.getInquiryId()))
                 .build();
     }
 
@@ -39,6 +44,7 @@ public record MobileInquirySummaryResponseDTO (
                 .inquiryType(inquirySummary.inquiryType().getKoreanName())
                 .customerName(inquirySummary.customerName())
                 .productType(inquirySummary.productType().toString())
+                .customInquiryId(generateCustomInquiryId(inquirySummary.createdDate(), inquirySummary.inquiryId()))
                 .build();
     }
 }
