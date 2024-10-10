@@ -205,7 +205,7 @@ public class InquiryService {
 
         Optional<Manager> salesManager = dto.salesManagerId()
             .map(id -> {
-                JsonResult<Manager> result = userClient.getManagerById(token, id);
+                JsonResult<Manager> result = userClient.getManagerByIdWithoutToken(id);
                 if (result.getData() == null) {
                     throw new CommonException(ErrorCode.SALES_MANAGER_NOT_FOUND);
                 }
