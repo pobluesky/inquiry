@@ -16,7 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 @FeignClient(name = "chat", configuration = FeignConfig.class)
 public interface ChatClient {
 
-    @PostMapping(value = "/api/ocr/{userId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/api/ocr/{userId}", consumes = "multipart/form-data")
     JsonResult<Map<String, Object>> processOcrFile(
         @RequestHeader("Authorization") String token,
         @PathVariable("userId") Long userId,
